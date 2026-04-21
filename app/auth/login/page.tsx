@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 export default async function LoginPage() {
@@ -15,7 +16,17 @@ export default async function LoginPage() {
   async function signInWithGoogle() {
     'use server'
     const supabase = await createClient()
-    const origin = 'http://localhost:3000'
+    const headerStore = await headers()
+    const forwardedProto = headerStore.get('x-forwarded-proto')
+    const forwardedHost = headerStore.get('x-forwarded-host')
+    const host = headerStore.get('host')
+    const origin =
+      process.env.NEXT_PUBLIC_SITE_URL ??
+      (forwardedHost
+        ? `${forwardedProto ?? 'https'}://${forwardedHost}`
+        : host
+          ? `https://${host}`
+          : 'http://localhost:3000')
 
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',

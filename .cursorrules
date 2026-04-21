@@ -1,0 +1,83 @@
+# Project: Nail Salon Appointment Scheduler (Cothemaniculator)
+
+## Tech Stack
+- Next.js 15 with App Router
+- TypeScript
+- Supabase (PostgreSQL database + Auth)
+- Tailwind CSS
+- Google Calendar API integration (planned)
+- Twilio (SMS) + Resend (Email) for notifications (planned)
+
+## Project Structure
+- /app - Next.js pages and routes
+  - /auth - Authentication (Google OAuth working)
+  - /book - Booking flow (in progress)
+  - /dashboard - Customer dashboard
+- /lib/supabase - Supabase client/server utilities
+- /lib/types - TypeScript type definitions
+- /components - React components
+- /middleware.ts - Auth middleware
+
+## Key Features Implemented
+x Google OAuth authentication (working in production)
+x Customer management in Supabase
+x Complete database schema with conflict prevention
+x Deployed to Vercel (https://co-the-maniculator.vercel.app)
+
+## Database Schema
+- services: Base services and metadata
+- service_length_options: Length pricing for extensions
+- nail_art_tiers: 4 tiers of nail art complexity
+- customers: User profiles linked to auth
+- appointments: Bookings with conflict checking
+- appointment_services: Many-to-many relationship
+- business_hours: Operating hours with date overrides
+- blocked_slots: Manual time blocks
+- google_calendar_events: Calendar sync (not yet implemented)
+
+## Business Rules
+- 1 hour buffer between ALL appointments (not shown to customers)
+- 16 hour minimum advance booking
+- 2 month maximum booking window
+- Max 4 future appointments per customer
+- Nail art is REQUIRED with all services
+- Appointments must END by 9pm (not just start before 9pm)
+- Double booking prevention via database triggers
+- 24 hour cancellation policy
+
+## Services & Pricing
+1. Hard Gel Overlay: $50, 90min
+2. Hard Gel Extensions: $55-$85 (by length), 150min
+3. Polygel Extensions: $60-$100 (by length), 180min
+4. Same Product Fill-In: $45, 90min
+5. Nail Art Tiers:
+   - T1: $10, +30min (French tips, chrome, pearl, single color)
+   - T2: $15, +45min (Multiple designs, bloom art, animal prints)
+   - T3: $20, +60min (3+ designs, 3D art, hand painted)
+   - T4: $30, +90min (4+ designs, encapsulation, junk nails, sculpted)
+6. Foreign Removal: $15, +45min
+7. My Product Removal: Free, +45min
+
+## Current Status
+- Authentication: ✅ Complete and deployed
+- Database: ✅ Complete with triggers and RLS
+- Service selection UI: 🔄 Generated from v0, needs integration
+- Calendar/booking: ⏳ Not started
+- Google Calendar sync: ⏳ Not started
+- Notifications: ⏳ Not started
+
+## Next Steps
+1. Integrate v0 appointment-booking component into /app/book
+2. Fetch real service data from Supabase
+3. Build calendar/time slot picker with Google Calendar conflict checking
+4. Implement booking confirmation and storage
+5. Set up Google Calendar two-way sync
+6. Add email/SMS notifications
+
+## Important Notes
+- Google Calendar: courtnelliott@gmail.com
+- Business hours: Mon/Fri/Sat/Sun 8am-9pm, Thu 5pm-9pm, Tue/Wed closed
+- All times in Eastern timezone
+- Never expose SUPABASE_SERVICE_ROLE_KEY (not in use yet)
+```
+

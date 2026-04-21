@@ -19,113 +19,50 @@ import {
   TooltipProvider,
 } from "@/components/ui/tooltip"
 
-type BaseService = {
+// Types matching Supabase database schema
+type Service = {
   id: string
   name: string
-  price: number | null
-  priceRange?: { min: number; max: number }
-  duration: number
-  description: string
-  hasLengthOptions: boolean
+  description: string | null
+  base_duration_minutes: number
+  base_price: number | null
+  has_length_options: boolean
+  buffer_time_minutes: number
+  is_addon: boolean
+  requires_base_service: boolean
+  can_be_booked_alone: boolean
+  display_order: number | null
+  is_active: boolean
 }
 
-type LengthOption = {
+type ServiceLengthOption = {
   id: string
-  name: string
-  prices: { hardGel: number; polygel: number }
+  service_id: string
+  length_name: string
+  duration_minutes: number
+  price: number
+  display_order: number | null
 }
 
 type NailArtTier = {
   id: string
-  tier: number
-  price: number
-  duration: number
+  tier_number: number
+  tier_name: string
   description: string
-}
-
-type RemovalOption = {
-  id: string
-  name: string
+  duration_minutes: number
   price: number
-  duration: number
+  display_order: number | null
 }
 
-const baseServices: BaseService[] = [
-  {
-    id: "hard-gel-overlay",
-    name: "Hard Gel Overlay",
-    price: 50,
-    duration: 90,
-    description: "Includes manicure. Can be combined with nail art or removals.",
-    hasLengthOptions: false,
-  },
-  {
-    id: "hard-gel-extensions",
-    name: "Hard Gel Extensions",
-    price: null,
-    priceRange: { min: 55, max: 85 },
-    duration: 150,
-    description: "Includes manicure. Price varies by length. Can be combined with nail art or removals.",
-    hasLengthOptions: true,
-  },
-  {
-    id: "polygel-extensions",
-    name: "Polygel Extensions",
-    price: null,
-    priceRange: { min: 60, max: 100 },
-    duration: 180,
-    description: "Includes manicure. Price varies by length. Can be combined with nail art or removals.",
-    hasLengthOptions: true,
-  },
-  {
-    id: "same-product-fill",
-    name: "Same Product Fill-In",
-    price: 45,
-    duration: 90,
-    description: "Fill-in service for nails I previously did. Includes manicure.",
-    hasLengthOptions: false,
-  },
-]
+// Props for the component
+type AppointmentBookingProps = {
+  services: Service[]
+  lengthOptions: ServiceLengthOption[]
+  nailArtTiers: NailArtTier[]
+}
 
-const lengthOptions: LengthOption[] = [
-  { id: "short", name: "Short", prices: { hardGel: 55, polygel: 60 } },
-  { id: "medium", name: "Medium", prices: { hardGel: 65, polygel: 70 } },
-  { id: "long", name: "Long", prices: { hardGel: 75, polygel: 80 } },
-  { id: "xl-xxxl", name: "XL-XXXL", prices: { hardGel: 85, polygel: 100 } },
-]
-
-const nailArtTiers: NailArtTier[] = [
-  {
-    id: "tier-1",
-    tier: 1,
-    price: 10,
-    duration: 30,
-    description: "French tips, chrome or pearl finish, single color aura, single color marble",
-  },
-  {
-    id: "tier-2",
-    tier: 2,
-    price: 15,
-    duration: 45,
-    description: "More than 1 design, bloom art, animal prints, two or more colors, single accent finger with any kind of art",
-  },
-  {
-    id: "tier-3",
-    tier: 3,
-    price: 20,
-    duration: 60,
-    description: "More than 3 different designs or colors, 3D art, hand painted nail art, foils or stamps",
-  },
-  {
-    id: "tier-4",
-    tier: 4,
-    price: 30,
-    duration: 90,
-    description: "4 or more different designs or colors, encapsulation, junk nails, more than 1 bling nail, sculpted art, unique nail shapes",
-  },
-]
-
-const removalOptions: RemovalOption[] = [
+// Hardcoded removal options (these aren't in the database yet)
+const removalOptions = [
   {
     id: "foreign-removal",
     name: "Foreign Product Removal",
@@ -134,20 +71,48 @@ const removalOptions: RemovalOption[] = [
   },
   {
     id: "my-removal",
-    name: "My Product Removal",
+    name: "My Product Removal (Free)",
     price: 0,
     duration: 45,
   },
 ]
 
-export default function AppointmentBooking() {
+export default function AppointmentBooking({ 
+  services, 
+  lengthOptions, 
+  nailArtTiers 
+}: AppointmentBookingProps) {
   const [selectedBaseService, setSelectedBaseService] = useState<string | null>(null)
   const [selectedLength, setSelectedLength] = useState<string | null>(null)
   const [selectedArtTier, setSelectedArtTier] = useState<string | null>(null)
   const [selectedRemoval, setSelectedRemoval] = useState<string | null>(null)
 
+  // Filter to get only base services (not add-ons, can be booked alone)
+  const baseServices = services.filter(s => s.can_be_booked_alone && !s.is_addon && !s.requires_base_service)
   const selectedBase = baseServices.find((s) => s.id === selectedBaseService)
-  const showLengthSection = selectedBase?.hasLengthOptions
+  const showLengthSection = selectedBase?.has_length_options
+
+  // Get length options for the selected service
+  const serviceLengthOptions = useMemo(() => {
+    if (!selectedBase?.id) return []
+    return lengthOptions.filter(opt => opt.service_id === selectedBase.id)
+  }, [selectedBase, lengthOptions])
+
+  // Calculate price range for services with length options
+  const getPriceDisplay = (service: Service) => {
+    if (service.base_price !== null) {
+      return `$${service.base_price}`
+    }
+    // Get length options for this service
+    const options = lengthOptions.filter(opt => opt.service_id === service.id)
+    if (options.length > 0) {
+      const prices = options.map(opt => opt.price)
+      const min = Math.min(...prices)
+      const max = Math.max(...prices)
+      return `$${min}–$${max}`
+    }
+    return 'Price varies'
+  }
 
   const calculations = useMemo(() => {
     let totalPrice = 0
@@ -155,22 +120,23 @@ export default function AppointmentBooking() {
     const selectedItems: { name: string; price: number; duration: number }[] = []
 
     if (selectedBase) {
-      let basePrice = selectedBase.price ?? 0
-      if (selectedBase.hasLengthOptions && selectedLength) {
-        const length = lengthOptions.find((l) => l.id === selectedLength)
+      let basePrice = selectedBase.base_price ?? 0
+      let baseName = selectedBase.name
+      
+      if (selectedBase.has_length_options && selectedLength) {
+        const length = serviceLengthOptions.find((l) => l.id === selectedLength)
         if (length) {
-          basePrice =
-            selectedBase.id === "hard-gel-extensions"
-              ? length.prices.hardGel
-              : length.prices.polygel
+          basePrice = length.price
+          baseName = `${selectedBase.name} (${length.length_name})`
         }
       }
+      
       totalPrice += basePrice
-      totalDuration += selectedBase.duration
+      totalDuration += selectedBase.base_duration_minutes
       selectedItems.push({
-        name: selectedBase.name + (selectedLength ? ` (${lengthOptions.find(l => l.id === selectedLength)?.name})` : ""),
+        name: baseName,
         price: basePrice,
-        duration: selectedBase.duration,
+        duration: selectedBase.base_duration_minutes,
       })
     }
 
@@ -178,11 +144,11 @@ export default function AppointmentBooking() {
       const tier = nailArtTiers.find((t) => t.id === selectedArtTier)
       if (tier) {
         totalPrice += tier.price
-        totalDuration += tier.duration
+        totalDuration += tier.duration_minutes
         selectedItems.push({
-          name: `Nail Art Tier ${tier.tier}`,
+          name: `Nail Art Tier ${tier.tier_number}`,
           price: tier.price,
-          duration: tier.duration,
+          duration: tier.duration_minutes,
         })
       }
     }
@@ -201,7 +167,7 @@ export default function AppointmentBooking() {
     }
 
     return { totalPrice, totalDuration, selectedItems }
-  }, [selectedBase, selectedLength, selectedArtTier, selectedRemoval])
+  }, [selectedBase, selectedLength, selectedArtTier, selectedRemoval, serviceLengthOptions, nailArtTiers])
 
   const canContinue = useMemo(() => {
     if (!selectedBaseService || !selectedArtTier) return false
@@ -263,7 +229,7 @@ export default function AppointmentBooking() {
                   )}
                   onClick={() => {
                     setSelectedBaseService(service.id)
-                    if (!service.hasLengthOptions) {
+                    if (!service.has_length_options) {
                       setSelectedLength(null)
                     }
                   }}
@@ -290,13 +256,11 @@ export default function AppointmentBooking() {
                     <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
                       <span className="flex items-center gap-1 text-stone-900 font-medium">
                         <DollarSign className="size-3.5 text-emerald-700" />
-                        {service.price !== null
-                          ? `$${service.price}`
-                          : `$${service.priceRange?.min}–$${service.priceRange?.max}`}
+                        {getPriceDisplay(service)}
                       </span>
                       <span className="flex items-center gap-1 text-stone-500">
                         <Clock className="size-3.5" />
-                        {service.duration}min
+                        {service.base_duration_minutes}min
                       </span>
                     </div>
                     {selectedBaseService === service.id && (
@@ -326,31 +290,25 @@ export default function AppointmentBooking() {
                 </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {lengthOptions.map((option) => {
-                  const price =
-                    selectedBase?.id === "hard-gel-extensions"
-                      ? option.prices.hardGel
-                      : option.prices.polygel
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      className={cn(
-                        "flex flex-col items-center rounded-xl border p-5 transition-all duration-300 bg-white/80 backdrop-blur-sm",
-                        selectedLength === option.id
-                          ? "border-emerald-700 ring-2 ring-emerald-700 shadow-lg shadow-emerald-900/10"
-                          : "border-stone-200 hover:border-emerald-700/30 hover:shadow-md hover:shadow-stone-900/5"
-                      )}
-                      onClick={() => setSelectedLength(option.id)}
-                    >
-                      <span className="font-serif text-lg font-medium text-stone-900">{option.name}</span>
-                      <span className="mt-1 text-sm text-stone-500">${price}</span>
-                      {selectedLength === option.id && (
-                        <Check className="mt-3 size-4 text-emerald-700" />
-                      )}
-                    </button>
-                  )
-                })}
+                {serviceLengthOptions.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={cn(
+                      "flex flex-col items-center rounded-xl border p-5 transition-all duration-300 bg-white/80 backdrop-blur-sm",
+                      selectedLength === option.id
+                        ? "border-emerald-700 ring-2 ring-emerald-700 shadow-lg shadow-emerald-900/10"
+                        : "border-stone-200 hover:border-emerald-700/30 hover:shadow-md hover:shadow-stone-900/5"
+                    )}
+                    onClick={() => setSelectedLength(option.id)}
+                  >
+                    <span className="font-serif text-lg font-medium text-stone-900">{option.length_name}</span>
+                    <span className="mt-1 text-sm text-stone-500">${option.price}</span>
+                    {selectedLength === option.id && (
+                      <Check className="mt-3 size-4 text-emerald-700" />
+                    )}
+                  </button>
+                ))}
               </div>
             </section>
           )}
@@ -378,14 +336,14 @@ export default function AppointmentBooking() {
                   <CardContent className="p-0">
                     <div className="p-5">
                       <div className="flex items-center justify-between">
-                        <h3 className="font-serif text-lg font-medium text-stone-900">Tier {tier.tier}</h3>
+                        <h3 className="font-serif text-lg font-medium text-stone-900">Tier {tier.tier_number}</h3>
                         {selectedArtTier === tier.id && (
                           <Check className="size-4 text-emerald-700" />
                         )}
                       </div>
                       <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
                         <span className="text-stone-900 font-medium">+${tier.price}</span>
-                        <span className="text-stone-500">+{tier.duration}min</span>
+                        <span className="text-stone-500">+{tier.duration_minutes}min</span>
                       </div>
                     </div>
                     <Accordion type="single" collapsible>
