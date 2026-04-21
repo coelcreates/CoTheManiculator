@@ -1,10 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
+import { resolveSiteUrl } from '@/lib/supabase/site-url'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
-  const origin = requestUrl.origin
+  const origin = resolveSiteUrl({
+    get(name: string) {
+      return request.headers.get(name)
+    },
+  })
 
   if (code) {
     const supabase = await createClient()
